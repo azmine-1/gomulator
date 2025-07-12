@@ -3,15 +3,16 @@ package main
 import "fmt"
 
 type CPU struct {
-	A          uint8
-	B          uint8
-	PC         uint8
-	MAR        uint8
-	IR         uint8
-	OUT        uint8
-	Z          bool
-	clockCycle int
-	memory     [16]uint8
+	A          uint8     //Accumulator
+	B          uint8     // B regiser
+	PC         uint8     // Program counter
+	MAR        uint8     // Memory address regiser
+	IR         uint8     // Instruction regiser
+	OUT        uint8     // output register
+	Z          bool      // zero flag
+	clockCycle int       // cpu cycle
+	memory     [16]uint8 // memory address bus
+	C          bool
 }
 
 type Instruction struct {
@@ -19,14 +20,14 @@ type Instruction struct {
 	MemoryAdress uint8
 }
 
-func splitInstruction(RI uint8) Instruction {
+func splitInstruction(Input uint8) Instruction {
 	instruction := Instruction{}
-	instruction.Opcode = (RI & 0xF0) >> 4
-	instruction.MemoryAdress = RI & 0x0F
+	instruction.Opcode = (Input & 0xF0) >> 4
+	instruction.MemoryAdress = Input & 0x0F
 	return instruction
 }
 
-func step(c *CPU, i *Instruction) {
+func step(c *CPU, input uint8) {
 	switch c.clockCycle {
 	case 0:
 		c.MAR = c.PC
@@ -34,14 +35,42 @@ func step(c *CPU, i *Instruction) {
 		c.PC++
 	case 2:
 		c.IR = c.memory[c.MAR]
-	case 3:
-		execute(c, i)
+	case 3, 4, 5:
+		execute(c, input)
 	}
+	c.clockCycle = (c.clockCycle + 1) % 6
 
 }
 
 func execute(c *CPU, i *Instruction) {
-	return (nil)
+
+	switch i.Opcode {
+	case 0x0:
+		c.memory[i.MemoryAdress] = c.A
+	case 0x1:
+		c.A += c.memory[i.MemoryAdress]
+	case 0x2:
+		c.A -= c.memory[i.MemoryAdress]
+	case 0x3:
+		c.memory[i.MemoryAdress] = c.A
+	case 0x4:
+		c.A = i.MemoryAdress
+	case 0x5:
+		c.PC = i.MemoryAdress
+	case 0x6:
+		if c.Z {
+			c.PC = i.MemoryAdress
+		}
+	case 0x7:
+		if c.C {
+			c.PC = i.MemoryAdress
+		}
+	case 0x8:
+		c.OUT = c.PC
+	case 0x9:
+		return
+
+	}
 }
 
 func main() {
