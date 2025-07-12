@@ -13,17 +13,18 @@ type CPU struct {
 	clockCycle int       // cpu cycle
 	memory     [16]uint8 // memory address bus
 	C          bool
+	Halted     bool
 }
 
 type Instruction struct {
-	Opcode       uint8
-	MemoryAdress uint8
+	Opcode        uint8
+	MemoryAddress uint8
 }
 
 func splitInstruction(Input uint8) Instruction {
 	instruction := Instruction{}
 	instruction.Opcode = (Input & 0xF0) >> 4
-	instruction.MemoryAdress = Input & 0x0F
+	instruction.MemoryAddress = Input & 0x0F
 	return instruction
 }
 
@@ -44,52 +45,56 @@ func step(c *CPU) {
 }
 
 func execute(c *CPU, i *Instruction) {
+	if c.Halted {
+		return
+	}
 
 	switch i.Opcode {
 	case 0x0: //LDA
-		c.A = c.memory[i.MemoryAdress]
+		c.A = c.memory[i.MemoryAddress]
 	case 0x1: //ADD
-		if c.A+c.memory[i.MemoryAdress] > 255 {
+		result := uint16(c.A) + uint16(c.memory[i.MemoryAddress])
+		if result > 255 {
 			c.C = true
 		} else {
 			c.C = false
 		}
-		c.A += c.memory[i.MemoryAdress]
+		c.A = uint8(result)
 		if c.A == 0 {
 			c.Z = true
 		} else {
 			c.Z = false
 		}
 	case 0x2: //SUB
-		if c.A < c.memory[i.MemoryAdress] {
+		if c.A < c.memory[i.MemoryAddress] {
 			c.C = true
 		} else {
 			c.C = false
 		}
+		c.A -= c.memory[i.MemoryAddress]
 		if c.A == 0 {
 			c.Z = true
 		} else {
 			c.Z = false
 		}
-		c.A -= c.memory[i.MemoryAdress]
 	case 0x3: //STA
-		c.memory[i.MemoryAdress] = c.A
+		c.memory[i.MemoryAddress] = c.A
 	case 0x4: // LDI
-		c.A = i.MemoryAdress
+		c.A = i.MemoryAddress
 	case 0x5: // JMP
-		c.PC = i.MemoryAdress
+		c.PC = i.MemoryAddress
 	case 0x6: // Jump if Zero
 		if c.Z {
-			c.PC = i.MemoryAdress
+			c.PC = i.MemoryAddress
 		}
 	case 0x7: // Jump if carry
 		if c.C {
-			c.PC = i.MemoryAdress
+			c.PC = i.MemoryAddress
 		}
-	case 0x8: // Jump if zero
-		c.OUT = c.PC
-	case 0x9: // OUT
-		return
+	case 0x8: // OUT
+		c.OUT = c.A
+	case 0x9: //HALT
+		c.Halted = true
 
 	}
 }
@@ -105,6 +110,34 @@ func reset(c *CPU) {
 	c.clockCycle = 0
 
 }
+
+func run(c *CPU, maxCycles int) {
+	for i := 0; i < maxCycles; i++ {
+		step(c)
+	}
+}
+func printCPUState(c *CPU) {
+	fmt.Printf("A:%02X B:%02X PC:%02X OUT:%02X Z:%t C:%t Halted:%t\n",
+		c.A, c.B, c.PC, c.OUT, c.Z, c.C, c.Halted)
+}
+
+func loadROM(c *CPU, rom []uint8) {
+	copy(c.memory[:], rom)
+}
+func rom1_hello() []uint8 {
+	return []uint8{
+		0x42, // LDI 2 (load immediate value 2 into A)
+		0x80, // OUT (output A to OUT register)
+		0x90, // HALT
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	}
+}
 func main() {
-	fmt.Printf("Hello world")
+	fmt.Printf("=========SAP-1 EMULATOR =========")
+	cpu := &CPU{}
+
+	reset(cpu)
+	loadROM(cpu, rom1_hello())
+	run(cpu, 100)
+	printCPUState(cpu)
 }
