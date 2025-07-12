@@ -34,70 +34,91 @@ func step(c *CPU) {
 		c.MAR = c.PC
 	case 1:
 		c.PC++
+		if c.PC >= 16 {
+			c.PC = 0
+		}
 	case 2:
+		if c.MAR >= 16 {
+			c.MAR = 0
+		}
 		c.IR = c.memory[c.MAR]
 	case 3, 4, 5:
 		instruction := splitInstruction(c.IR)
-		execute(c, &instruction)
+		switch instruction.Opcode {
+		case 0x0: // LDA
+			if c.clockCycle == 3 {
+				c.MAR = instruction.MemoryAddress
+			} else if c.clockCycle == 4 {
+				c.A = c.memory[c.MAR]
+				c.Z = (c.A == 0)
+			}
+
+		case 0x1: // ADD
+			if c.clockCycle == 3 {
+				c.MAR = instruction.MemoryAddress
+			} else if c.clockCycle == 4 {
+				c.B = c.memory[c.MAR]
+			} else if c.clockCycle == 5 {
+				result := uint16(c.A) + uint16(c.B)
+				c.C = (result > 255)
+				c.A = uint8(result)
+				c.Z = (c.A == 0)
+			}
+
+		case 0x2: // SUB
+			if c.clockCycle == 3 {
+				c.MAR = instruction.MemoryAddress
+			} else if c.clockCycle == 4 {
+				c.B = c.memory[c.MAR]
+			} else if c.clockCycle == 5 {
+				c.C = (c.A < c.B)
+				c.A = c.A - c.B
+				c.Z = (c.A == 0)
+			}
+
+		case 0x3: // STA
+			if c.clockCycle == 3 {
+				c.MAR = instruction.MemoryAddress
+			} else if c.clockCycle == 4 {
+				c.memory[c.MAR] = c.A
+			}
+
+		case 0x4: // LDI
+			if c.clockCycle == 3 {
+				c.A = instruction.MemoryAddress
+				c.Z = (c.A == 0)
+			}
+
+		case 0x5: // JMP
+			if c.clockCycle == 3 {
+				c.PC = instruction.MemoryAddress
+			}
+
+		case 0x6: // JZ (Jump if Zero)
+			if c.clockCycle == 3 && c.Z {
+				c.PC = instruction.MemoryAddress
+			}
+
+		case 0x7: // JC (Jump if Carry)
+			if c.clockCycle == 3 && c.C {
+				c.PC = instruction.MemoryAddress
+			}
+
+		case 0x8: // OUT
+			if c.clockCycle == 3 {
+				c.OUT = c.A
+			}
+
+		case 0x9: // HALT
+			if c.clockCycle == 3 {
+				c.Halted = true
+			}
+		}
 	}
 	c.clockCycle = (c.clockCycle + 1) % 6
 
 }
 
-func execute(c *CPU, i *Instruction) {
-	if c.Halted {
-		return
-	}
-
-	switch i.Opcode {
-	case 0x0: //LDA
-		c.A = c.memory[i.MemoryAddress]
-	case 0x1: //ADD
-		result := uint16(c.A) + uint16(c.memory[i.MemoryAddress])
-		if result > 255 {
-			c.C = true
-		} else {
-			c.C = false
-		}
-		c.A = uint8(result)
-		if c.A == 0 {
-			c.Z = true
-		} else {
-			c.Z = false
-		}
-	case 0x2: //SUB
-		if c.A < c.memory[i.MemoryAddress] {
-			c.C = true
-		} else {
-			c.C = false
-		}
-		c.A -= c.memory[i.MemoryAddress]
-		if c.A == 0 {
-			c.Z = true
-		} else {
-			c.Z = false
-		}
-	case 0x3: //STA
-		c.memory[i.MemoryAddress] = c.A
-	case 0x4: // LDI
-		c.A = i.MemoryAddress
-	case 0x5: // JMP
-		c.PC = i.MemoryAddress
-	case 0x6: // Jump if Zero
-		if c.Z {
-			c.PC = i.MemoryAddress
-		}
-	case 0x7: // Jump if carry
-		if c.C {
-			c.PC = i.MemoryAddress
-		}
-	case 0x8: // OUT
-		c.OUT = c.A
-	case 0x9: //HALT
-		c.Halted = true
-
-	}
-}
 func reset(c *CPU) {
 	c.A = 0
 	c.B = 0
@@ -112,17 +133,22 @@ func reset(c *CPU) {
 }
 
 func run(c *CPU, maxCycles int) {
-	for i := 0; i < maxCycles; i++ {
+	for i := 0; i < maxCycles && !c.Halted; i++ {
 		step(c)
 	}
 }
-func printCPUState(c *CPU) {
-	fmt.Printf("A:%02X B:%02X PC:%02X OUT:%02X Z:%t C:%t Halted:%t\n",
-		c.A, c.B, c.PC, c.OUT, c.Z, c.C, c.Halted)
+
+func printCPUStateDetailed(c *CPU) {
+	fmt.Printf("Cycle:%d A:%02X B:%02X PC:%02X MAR:%02X IR:%02X OUT:%02X Z:%t C:%t Halted:%t\n",
+		c.clockCycle, c.A, c.B, c.PC, c.MAR, c.IR, c.OUT, c.Z, c.C, c.Halted)
 }
 
 func loadROM(c *CPU, rom []uint8) {
 	copy(c.memory[:], rom)
+}
+func stepDebug(c *CPU) {
+	printCPUStateDetailed(c)
+	step(c)
 }
 func rom1_hello() []uint8 {
 	return []uint8{
@@ -132,12 +158,15 @@ func rom1_hello() []uint8 {
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 	}
 }
+
 func main() {
-	fmt.Printf("=========SAP-1 EMULATOR =========")
+	fmt.Println("========= SAP-1 EMULATOR =========")
 	cpu := &CPU{}
 
 	reset(cpu)
 	loadROM(cpu, rom1_hello())
-	run(cpu, 100)
-	printCPUState(cpu)
+
+	fmt.Println("Running program...")
+	run(cpu, 100000000000)
+	fmt.Printf("\nProgram output: %d\n", cpu.OUT)
 }
