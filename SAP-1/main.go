@@ -45,29 +45,29 @@ func step(c *CPU, input uint8) {
 func execute(c *CPU, i *Instruction) {
 
 	switch i.Opcode {
-	case 0x0:
+	case 0x0: //LDA
 		c.memory[i.MemoryAdress] = c.A
-	case 0x1:
+	case 0x1: //ADD
 		c.A += c.memory[i.MemoryAdress]
-	case 0x2:
+	case 0x2: //SUB
 		c.A -= c.memory[i.MemoryAdress]
-	case 0x3:
+	case 0x3: //STA
 		c.memory[i.MemoryAdress] = c.A
-	case 0x4:
+	case 0x4: // LDI
 		c.A = i.MemoryAdress
-	case 0x5:
+	case 0x5: // JMP
 		c.PC = i.MemoryAdress
-	case 0x6:
+	case 0x6: // Jump if Zero
 		if c.Z {
 			c.PC = i.MemoryAdress
 		}
-	case 0x7:
+	case 0x7: // Jump if carry
 		if c.C {
 			c.PC = i.MemoryAdress
 		}
-	case 0x8:
+	case 0x8: // Jump if zero
 		c.OUT = c.PC
-	case 0x9:
+	case 0x9: // OUT
 		return
 
 	}
