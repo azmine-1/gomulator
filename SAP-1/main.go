@@ -49,19 +49,27 @@ func execute(c *CPU, i *Instruction) {
 	case 0x0: //LDA
 		c.A = c.memory[i.MemoryAdress]
 	case 0x1: //ADD
-		if c.A > 255 {
+		if c.A+c.memory[i.MemoryAdress] > 255 {
 			c.C = true
+		} else {
+			c.C = false
 		}
 		c.A += c.memory[i.MemoryAdress]
 		if c.A == 0 {
 			c.Z = true
+		} else {
+			c.Z = false
 		}
 	case 0x2: //SUB
 		if c.A < c.memory[i.MemoryAdress] {
 			c.C = true
+		} else {
+			c.C = false
 		}
 		if c.A == 0 {
 			c.Z = true
+		} else {
+			c.Z = false
 		}
 		c.A -= c.memory[i.MemoryAdress]
 	case 0x3: //STA
@@ -85,7 +93,18 @@ func execute(c *CPU, i *Instruction) {
 
 	}
 }
+func reset(c *CPU) {
+	c.A = 0
+	c.B = 0
+	c.PC = 0
+	c.MAR = 0
+	c.IR = 0
+	c.OUT = 0
+	c.Z = false
+	c.C = false
+	c.clockCycle = 0
 
+}
 func main() {
 	fmt.Printf("Hello world")
 }
