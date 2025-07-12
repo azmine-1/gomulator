@@ -27,7 +27,7 @@ func splitInstruction(Input uint8) Instruction {
 	return instruction
 }
 
-func step(c *CPU, input uint8) {
+func step(c *CPU) {
 	switch c.clockCycle {
 	case 0:
 		c.MAR = c.PC
@@ -36,7 +36,8 @@ func step(c *CPU, input uint8) {
 	case 2:
 		c.IR = c.memory[c.MAR]
 	case 3, 4, 5:
-		execute(c, input)
+		instruction := splitInstruction(c.IR)
+		execute(c, &instruction)
 	}
 	c.clockCycle = (c.clockCycle + 1) % 6
 
@@ -46,10 +47,22 @@ func execute(c *CPU, i *Instruction) {
 
 	switch i.Opcode {
 	case 0x0: //LDA
-		c.memory[i.MemoryAdress] = c.A
+		c.A = c.memory[i.MemoryAdress]
 	case 0x1: //ADD
+		if c.A > 255 {
+			c.C = true
+		}
 		c.A += c.memory[i.MemoryAdress]
+		if c.A == 0 {
+			c.Z = true
+		}
 	case 0x2: //SUB
+		if c.A < c.memory[i.MemoryAdress] {
+			c.C = true
+		}
+		if c.A == 0 {
+			c.Z = true
+		}
 		c.A -= c.memory[i.MemoryAdress]
 	case 0x3: //STA
 		c.memory[i.MemoryAdress] = c.A
