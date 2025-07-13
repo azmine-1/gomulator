@@ -158,15 +158,24 @@ func rom1_hello() []uint8 {
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 	}
 }
+func rom_add_5_and_3() []uint8 {
+	return []uint8{
+		0x45, // LDI 5 (load immediate value 5 into A)
+		0x1F, // ADD F (add value at memory address F to A)
+		0x80, // OUT (output A to OUT register)
+		0x90, // HALT
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x03, // Memory address F (15) contains the value 3
+	}
+}
 
 func main() {
 	fmt.Println("========= SAP-1 EMULATOR =========")
 	cpu := &CPU{}
-
+	// Second program - should print 8
 	reset(cpu)
-	loadROM(cpu, rom1_hello())
-
-	fmt.Println("Running program...")
+	loadROM(cpu, rom_add_5_and_3())
+	fmt.Println("Running second program...")
 	run(cpu, 100000000000)
-	fmt.Printf("\nProgram output: %d\n", cpu.OUT)
+	fmt.Printf("Program output: %d\n", cpu.OUT)
 }
